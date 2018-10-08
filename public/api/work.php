@@ -4,6 +4,8 @@ require '../../app/common.php';
 
 $taskId = $_GET ['task_Id'] ?? 0;
 
+echo $taskId;
+
 // $taskId = intval($_GET['taskId'] ?? 0);
 
 // if ($taskId < 1) {
