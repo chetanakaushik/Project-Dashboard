@@ -1,104 +1,112 @@
-var app = new Vue({
+var dashboardApp = new Vue({
   el: '#dashboard',
   data: {
-    message: 'Hello Vue!'
-  }
-});
-
-var app1 = new Vue({
-  el: '#main',
-  data: {
-    "name" : "Tapestry",
-  "short_description": "Build a visualization layer for the project dashboard",
-  "start_date" : "2018-07-01",
-  "target_date" : "2018-11-03",
-  "budget" : "4950000",
-  "spent" : "3456700",
-  "projected_spend": "4740500",
-  "weekly_effort_target": 400,
-  "tasks" : [
-  {
-    "id": 1,
-    "title": '',
-    "type" : '',
-    "size" : '',
-    "team" : '',
-    "status": '',
-    "start_date": '',
-    "close_date": '',
-    "hours_worked": '',
-    "perc_complete":'' ,
-    "current_sprint" : ''
+    project: {
+      name : '',
+      short_description: '',
+      start_date : '',
+      target_date : '',
+      budget : '',
+      spent : '',
+      projected_spend: '',
+      weekly_effort_target: ''
+    },
+    tasks: [
+      {
+        id: 0,
+        title: '',
+        type : '',
+        size : '',
+        team : '',
+        status: '',
+        start_date: '',
+        close_date: null,
+        hours_worked: '',
+        perc_complete: '',
+        current_sprint : ''
+      }
+    ]
   },
-  // {
-  //   "id": 2,
-  //   "title": "Update unit tests",
-  //   "type" : "Story",
-  //   "size" : "L",
-  //   "team" : "MS Why Us",
-  //   "status": "Closed",
-  //   "start_date": "2018-07-15",
-  //   "close_date": "2018-08-1",
-  //   "hours_worked": 40,
-  //   "perc_complete": 100,
-  //   "current_sprint" : true
-  // },
-  // {
-  //   "id": 3,
-  //   "title": "Write middleware",
-  //   "type" : "Epic",
-  //   "size" : "XL",
-  //   "team" : "California Dream",
-  //   "status": "Open",
-  //   "start_date": null,
-  //   "close_date": null,
-  //   "hours_worked": 0,
-  //   "perc_complete": 0,
-  //   "current_sprint" : true
-  // },
-  // {
-  //   "id": 4,
-  //   "title": "Completion % not saving",
-  //   "type" : "Bug",
-  //   "size" : "XS",
-  //   "team" : "Luke's Parents",
-  //   "status": "Open",
-  //   "start_date": "2018-07-29",
-  //   "close_date": "",
-  //   "hours_worked": 27,
-  //   "perc_complete": 80,
-  //   "current_sprint" : false
-  // }
-]
-},
-
-computed:{
-  days_left: function(){
-    return 31;
-  }
-},
-
-methods:{
-  fetchTasks: function(){
-    fetch("https://raw.githubusercontent.com/tag/iu-msis/dev/public/p1-tasks.json")
-    .then(function (response) {return response.json();})
-    .then(function (json){app1.tasks = json; console.log(json);})
-    .catch(function (err) {
-      console.log('Fetch Error: ', err);
-    })
-
+  computed: {
+    days_left: function () {
+      return moment(this.project.target_date).diff(moment(), 'days')
+    }
   },
-  gotoTask(tid){
-    window.location = 'task.html?taskId='+ tid;
-  }
-},
-created: function(){
-  this.fetchTasks();
-  // console.log(window.location.href);
-  // const url = new URL(window.location.href);
-  // const taskId = url.searchParams.get("taskId");
-  // this.task.id = taskId;
-  // console.log('Task: '+taskId);
+  methods: {
+    pretty_date: function (d) {
+      return moment(d).format('l')
+    },
+    pretty_currency: function (val) {
+      if (val < 1e3) {
+        return '$ ' + val
+      }
 
-},
-});
+      if (val < 1e6) {
+        return '$ ' + (val/1e3).toFixed(1) + ' k'
+      }
+
+      return '$ ' + (val/1e6).toFixed(1) + ' M'
+    },
+    completeClass: function(task) {
+      if (task.perc_complete == 100 ) {
+        return 'alert-success'
+      }
+      if (task.current_sprint && task.hours_worked == 0 ) {
+        return 'alert-warning'
+      }
+    },
+    fetchTasks (pid) {
+      fetch('https://raw.githubusercontent.com/tag/iu-msis/dev/app/data/p1-tasks.json')
+      .then( response => response.json() )
+      // ^ This is the same as .then( function(response) {return response.json()} )
+      .then( json => {dashboardApp.tasks = json} )
+      .catch( err => {
+        console.log('TASK FETCH ERROR:');
+        console.log(err);
+      })
+    },
+    fetchProject (pid) {
+      fetch('https://raw.githubusercontent.com/tag/iu-msis/dev/app/data/project1.json')
+      .then( response => response.json() )
+      .then( json => {dashboardApp.project = json} )
+      .catch( err => {
+        console.log('PROJECT FETCH ERROR:');
+        console.log(err);
+      })
+    },
+    fetchProjectWork (pid) {
+      fetch('api/workHours.php?projectId=' + pid)
+      .then( response => response.json() )
+      .then( json => {
+        dashboardApp.workHours = json;
+        this.formatWorkHours();
+        // this.buildEffortChart();
+      })
+      .catch( err => {
+        console.log('PROJECT HOURS FETCH ERROR:');
+        console.log(err);
+      })
+    },
+    formatWorkHours() {
+      this.workHours.forEach(
+        function(entry, index, arr) {
+          entry.date = Date.parse(entry.date);
+          entry.hours = Number(entry.hours);
+
+          entry.runningTotalHours = entry.hours +
+            (index == 0 ? 0 : arr[index-1].runningTotalHours);
+        }
+      );
+      console.log(this.workHours);
+    },
+    gotoTask(tid) {
+      window.location = 'task.html?taskId=' + tid;
+    }
+  },
+  created () {
+    // TODO: GET param projectId
+    this.fetchProject(1);
+    this.fetchTasks(1);
+    this.fetchProjectWork(1);
+  }
+})
